@@ -12,8 +12,13 @@ if "players" not in st.session_state:
 if "num_players" not in st.session_state:
     st.session_state.num_players = 3
 
+# índice del jugador que está introduciendo sus datos
 if "current_player_input" not in st.session_state:
     st.session_state.current_player_input = 0
+
+# índice del jugador cuyo rol se está revelando
+if "current_reveal_index" not in st.session_state:
+    st.session_state.current_reveal_index = 0
 
 if "impostor_index" not in st.session_state:
     st.session_state.impostor_index = None
@@ -21,8 +26,11 @@ if "impostor_index" not in st.session_state:
 if "secret_word" not in st.session_state:
     st.session_state.secret_word = None
 
+if "start_player_index" not in st.session_state:
+    st.session_state.start_player_index = None
+
 if "step" not in st.session_state:
-    st.session_state.step = "config"   # config → words → reveal
+    st.session_state.step = "config"   # config → words → reveal → start_round
 
 if "show_role" not in st.session_state:
     st.session_state.show_role = False
@@ -33,20 +41,29 @@ if "show_role" not in st.session_state:
 # ------------------------------------------------------------
 
 def reset_game():
+    """Reinicia toda la partida."""
     st.session_state.players = []
     st.session_state.num_players = 3
     st.session_state.current_player_input = 0
+    st.session_state.current_reveal_index = 0
     st.session_state.impostor_index = None
     st.session_state.secret_word = None
+    st.session_state.start_player_index = None
     st.session_state.show_role = False
     st.session_state.step = "config"
 
 
+def parse_words(text):
+    words = re.split(r"[,;\n]+", text)
+    return [w.strip() for w in words if w.strip()]
+
+
 def new_round():
-    """Nueva ronda: impostor y palabra nuevos."""
+    """Nueva ronda: elige impostor y palabra y pasa a la fase de revelar roles."""
     num_players = len(st.session_state.players)
     st.session_state.impostor_index = random.randint(0, num_players - 1)
 
+    # Palabras de todos menos del impostor
     candidate_words = []
     for idx, p in enumerate(st.session_state.players):
         if idx != st.session_state.impostor_index:
@@ -54,12 +71,41 @@ def new_round():
 
     st.session_state.secret_word = random.choice(candidate_words)
     st.session_state.show_role = False
+    st.session_state.current_reveal_index = 0
+    st.session_state.start_player_index = None
     st.session_state.step = "reveal"
 
 
-def parse_words(text):
-    words = re.split(r"[,;\n]+", text)
-    return [w.strip() for w in words if w.strip()]
+def choose_start_player():
+    """Elige quién empieza hablando, intentando que pocas veces sea el impostor."""
+    num_players = len(st.session_state.players)
+    impostor = st.session_state.impostor_index
+
+    non_impostors = [i for i in range(num_players) if i != impostor]
+
+    # 80% de probabilidad de que NO sea el impostor
+    if non_impostors and random.random() < 0.8:
+        st.session_state.start_player_index = random.choice(non_impostors)
+    else:
+        st.session_state.start_player_index = random.randint(0, num_players - 1)
+
+
+def advance_reveal():
+    """Pasa al siguiente jugador o al inicio del juego cuando acaban todos."""
+    idx = st.session_state.current_reveal_index
+    num_players = len(st.session_state.players)
+
+    if idx < num_players - 1:
+        # siguiente jugador
+        st.session_state.current_reveal_index += 1
+        st.session_state.show_role = False
+        st.rerun()
+    else:
+        # han pasado todos → inicio del juego
+        choose_start_player()
+        st.session_state.show_role = False
+        st.session_state.step = "start_round"
+        st.rerun()
 
 
 # ------------------------------------------------------------
@@ -71,11 +117,10 @@ def ui_config():
 
     st.markdown("""
     **Cómo se juega** 
-    - Cada jugador escribe su nombre y 5–10 palabras (de uno en uno). 
-    - En cada ronda: 
-      ✔ Se elige un impostor 
-      ✔ Se elige una palabra que NO haya puesto el impostor 
-      ✔ Todos la ven excepto el impostor 
+    1. Cada jugador, por separado, escribe su nombre y 5–10 palabras. 
+    2. El juego elige un impostor y una palabra que ese impostor NO haya escrito. 
+    3. Se enseña el rol jugador por jugador. 
+    4. Después se indica quién empieza la ronda (normalmente no será el impostor 😉).
     """)
 
     st.session_state.num_players = st.number_input(
@@ -129,53 +174,71 @@ def ui_words():
         st.session_state.current_player_input += 1
 
         if st.session_state.current_player_input >= total:
+            # último jugador → crear ronda y pasar directamente al primer reveal
             new_round()
         else:
             st.rerun()
 
 
 # ------------------------------------------------------------
-#               PANTALLA 3 – MOSTRAR ROLES POR JUGADOR
+#         PANTALLA 3 – REVELAR ROLES (UNO TRAS OTRO)
 # ------------------------------------------------------------
 
 def ui_reveal():
-    st.header("🔍 Revelación de roles")
-
+    idx = st.session_state.current_reveal_index
     players = st.session_state.players
-    names = [p["name"] for p in players]
+    player = players[idx]
 
-    selected = st.selectbox(
-        "Selecciona tu nombre:",
-        names,
-        key="select_player_reveal"
-    )
+    st.header(f"Revelación de roles")
+    st.subheader(f"Turno de: **{player['name']}**")
 
-    if st.button("👀 Ver mi rol", key="btn_show_role"):
+    st.markdown("""
+    👉 Solo **esta persona** debe mirar la pantalla ahora mismo. 
+    """)
+
+    if st.button("👀 Revelar rol", key=f"btn_show_role_{idx}"):
         st.session_state.show_role = True
 
     if st.session_state.show_role:
-        idx = names.index(selected)
         st.markdown("---")
 
         if idx == st.session_state.impostor_index:
             st.subheader("😈 ERES EL IMPOSTOR")
-            st.write("No conoces la palabra. Intenta no levantar sospechas.")
+            st.write("No conoces la palabra. Intenta pasar desapercibido.")
         else:
             st.subheader("🗝️ Tu palabra secreta es:")
             st.markdown(f"# **{st.session_state.secret_word}**")
 
         st.markdown("---")
-        if st.button("➡️ Continuar", key="btn_hide_role"):
-            st.session_state.show_role = False
-            st.rerun()
+        if st.button("➡️ Continuar", key=f"btn_continue_role_{idx}"):
+            advance_reveal()
+
+
+# ------------------------------------------------------------
+#       PANTALLA 4 – INICIO DEL JUEGO / QUIÉN EMPIEZA
+# ------------------------------------------------------------
+
+def ui_start_round():
+    idx = st.session_state.start_player_index
+    player = st.session_state.players[idx]
+
+    st.header("🚀 Inicio del juego")
+
+    st.markdown("""
+    Ya se han revelado todos los roles. 
+    A partir de ahora podéis empezar a jugar y cada uno decir una pista.
+    """)
+
+    st.subheader(f"Empieza hablando: **{player['name']}**")
 
     st.markdown("---")
+    st.write("Cuando queráis jugar otra ronda con los mismos jugadores:")
 
-    if st.button("🔄 Nueva ronda", key="btn_new_round"):
+    if st.button("🔄 Nueva ronda", key="btn_new_round_start"):
         new_round()
         st.rerun()
 
-    if st.button("🔁 Reiniciar partida", key="btn_reset_game_body"):
+    if st.button("🔁 Reiniciar partida completa", key="btn_reset_full_start"):
         reset_game()
         st.rerun()
 
@@ -185,6 +248,7 @@ def ui_reveal():
 # ------------------------------------------------------------
 
 def main():
+    # Botón de reinicio rápido en la barra lateral
     st.sidebar.button(
         "🔁 Reiniciar Juego",
         on_click=reset_game,
@@ -199,6 +263,8 @@ def main():
         ui_words()
     elif step == "reveal":
         ui_reveal()
+    elif step == "start_round":
+        ui_start_round()
 
 
 if __name__ == "__main__":
