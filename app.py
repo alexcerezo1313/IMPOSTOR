@@ -12,11 +12,9 @@ if "players" not in st.session_state:
 if "num_players" not in st.session_state:
     st.session_state.num_players = 3
 
-# índice del jugador que está introduciendo sus datos
 if "current_player_input" not in st.session_state:
     st.session_state.current_player_input = 0
 
-# índice del jugador cuyo rol se está revelando
 if "current_reveal_index" not in st.session_state:
     st.session_state.current_reveal_index = 0
 
@@ -59,52 +57,53 @@ def parse_words(text):
 
 
 def new_round():
-    """Nueva ronda: elige impostor y palabra y pasa a la fase de revelar roles."""
+    """Crea una ronda nueva con impostor y palabra nuevos."""
     num_players = len(st.session_state.players)
+
+    # Elegir impostor
     st.session_state.impostor_index = random.randint(0, num_players - 1)
 
-    # Palabras de todos menos del impostor
+    # Crear lista de palabras válidas (solo de NO impostores)
     candidate_words = []
     for idx, p in enumerate(st.session_state.players):
         if idx != st.session_state.impostor_index:
             candidate_words.extend(p["words"])
 
     st.session_state.secret_word = random.choice(candidate_words)
-    st.session_state.show_role = False
+
+    # Reset para pantalla de revelación
     st.session_state.current_reveal_index = 0
+    st.session_state.show_role = False
     st.session_state.start_player_index = None
     st.session_state.step = "reveal"
 
 
 def choose_start_player():
-    """Elige quién empieza hablando, intentando que pocas veces sea el impostor."""
+    """Elige quién empieza hablando, con 95% de probabilidad de NO ser impostor."""
     num_players = len(st.session_state.players)
     impostor = st.session_state.impostor_index
-
     non_impostors = [i for i in range(num_players) if i != impostor]
 
-    # 80% de probabilidad de que NO sea el impostor
-    if non_impostors and random.random() < 0.8:
+    # 95% de probabilidad de que NO sea el impostor
+    if non_impostors and random.random() < 0.95:
         st.session_state.start_player_index = random.choice(non_impostors)
     else:
         st.session_state.start_player_index = random.randint(0, num_players - 1)
 
 
 def advance_reveal():
-    """Pasa al siguiente jugador o al inicio del juego cuando acaban todos."""
+    """Pasa al siguiente jugador o al inicio del juego si todos han revelado."""
     idx = st.session_state.current_reveal_index
     num_players = len(st.session_state.players)
 
     if idx < num_players - 1:
-        # siguiente jugador
         st.session_state.current_reveal_index += 1
         st.session_state.show_role = False
         st.rerun()
     else:
-        # han pasado todos → inicio del juego
         choose_start_player()
-        st.session_state.show_role = False
         st.session_state.step = "start_round"
+        st.session_state.show_role = False
         st.rerun()
 
 
@@ -174,7 +173,6 @@ def ui_words():
         st.session_state.current_player_input += 1
 
         if st.session_state.current_player_input >= total:
-            # último jugador → crear ronda y pasar directamente al primer reveal
             new_round()
         else:
             st.rerun()
@@ -189,11 +187,11 @@ def ui_reveal():
     players = st.session_state.players
     player = players[idx]
 
-    st.header(f"Revelación de roles")
+    st.header("Revelación de roles")
     st.subheader(f"Turno de: **{player['name']}**")
 
     st.markdown("""
-    👉 Solo **esta persona** debe mirar la pantalla ahora mismo. 
+    👉 Solo **esta persona** debe mirar la pantalla ahora mismo.
     """)
 
     if st.button("👀 Revelar rol", key=f"btn_show_role_{idx}"):
@@ -232,7 +230,14 @@ def ui_start_round():
     st.subheader(f"Empieza hablando: **{player['name']}**")
 
     st.markdown("---")
-    st.write("Cuando queráis jugar otra ronda con los mismos jugadores:")
+    st.write("Opciones:")
+
+    # Botón para revelar quién era el impostor
+    if st.button("😈 Revelar impostor", key="btn_reveal_impostor"):
+        impostor = st.session_state.players[st.session_state.impostor_index]["name"]
+        st.success(f"El impostor era: **{impostor}**")
+
+    st.markdown("---")
 
     if st.button("🔄 Nueva ronda", key="btn_new_round_start"):
         new_round()
@@ -248,7 +253,6 @@ def ui_start_round():
 # ------------------------------------------------------------
 
 def main():
-    # Botón de reinicio rápido en la barra lateral
     st.sidebar.button(
         "🔁 Reiniciar Juego",
         on_click=reset_game,
