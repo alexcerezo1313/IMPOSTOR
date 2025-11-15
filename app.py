@@ -115,11 +115,11 @@ def ui_config():
     st.title("🎭 Juego del Impostor")
 
     st.markdown("""
-    **Cómo se juega** 
-    1. Cada jugador, por separado, escribe su nombre y 5–10 palabras. 
-    2. El juego elige un impostor y una palabra que ese impostor NO haya escrito. 
-    3. Se enseña el rol jugador por jugador. 
-    4. Después se indica quién empieza la ronda (normalmente no será el impostor 😉).
+    **Cómo se juega**  
+    1. Cada jugador, por separado, escribe su nombre y 3–10 palabras.  
+    2. El juego elige un impostor y una palabra que ese impostor NO haya escrito.  
+    3. Se enseña el rol jugador por jugador.  
+    4. Después se indica quién empieza la ronda (normalmente no será el impostor).
     """)
 
     st.session_state.num_players = st.number_input(
@@ -156,15 +156,15 @@ def ui_words():
     )
 
     words_raw = st.text_area(
-        "Escribe entre 5 y 10 palabras (separadas por comas o saltos de línea):",
+        "Escribe entre 3 y 10 palabras (separadas por comas o saltos de línea):",
         key=f"words_input_{idx}",
         height=120
     )
 
     if st.button("Guardar y continuar ➜", key=f"btn_save_player_{idx}"):
         words = parse_words(words_raw)
-        if len(words) < 5 or len(words) > 10:
-            st.error("Debes introducir entre 5 y 10 palabras.")
+        if len(words) < 3 or len(words) > 10:
+            st.error("Debes introducir entre 3 y 10 palabras.")
             return
 
         st.session_state.players[idx]["name"] = name.strip() or f"Jugador {idx+1}"
@@ -208,6 +208,7 @@ def ui_reveal():
             st.markdown(f"# **{st.session_state.secret_word}**")
 
         st.markdown("---")
+
         if st.button("➡️ Continuar", key=f"btn_continue_role_{idx}"):
             advance_reveal()
 
@@ -223,7 +224,7 @@ def ui_start_round():
     st.header("🚀 Inicio del juego")
 
     st.markdown("""
-    Ya se han revelado todos los roles. 
+    Ya se han revelado todos los roles.  
     A partir de ahora podéis empezar a jugar y cada uno decir una pista.
     """)
 
