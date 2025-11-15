@@ -169,5 +169,6 @@ def main():
         ui_reveal()
 
 # 🔥 ESTA ES LA LÍNEA QUE TE FALLABA — AHORA ESTÁ PERFECTA
-if _name_ == "_main_":
+if __name__ == "__main__":
+
     main()
