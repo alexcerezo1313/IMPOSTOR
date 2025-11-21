@@ -53,7 +53,7 @@ def reset_game():
     st.session_state.start_player_index = None
     st.session_state.show_role = False
     st.session_state.step = "config"
-    st.session_state.used_words = []   # NUEVO → reiniciar historial de palabras
+    st.session_state.used_words = []   # reiniciar historial de palabras
 
 
 def parse_words(text):
@@ -68,21 +68,21 @@ def new_round():
     # Elegir impostor
     st.session_state.impostor_index = random.randint(0, num_players - 1)
 
-    # Obtener todas las palabras posibles de NO impostores
+    # Palabras posibles de NO impostores
     candidate_words = []
     for idx, p in enumerate(st.session_state.players):
         if idx != st.session_state.impostor_index:
             candidate_words.extend(p["words"])
 
-    # Eliminar palabras ya usadas
+    # Filtrar palabras ya usadas
     available_words = [w for w in candidate_words if w not in st.session_state.used_words]
 
-    # Si no queda ninguna palabra útil → reiniciar lista de palabras usadas
+    # Si no quedan palabras → reiniciar usadas
     if not available_words:
         st.session_state.used_words = []
         available_words = candidate_words.copy()
 
-    # Elegir palabra nueva
+    # Seleccionar palabra nueva
     st.session_state.secret_word = random.choice(available_words)
 
     # Guardar palabra como usada
@@ -131,9 +131,9 @@ def ui_config():
 
     st.markdown("""
     **Cómo se juega**  
-    1. Cada jugador, por separado, escribe su nombre y 3–10 palabras.  
+    1. Cada jugador escribe su nombre y de 1 a 10 palabras.  
     2. El juego elige un impostor y una palabra que ese impostor NO haya escrito.  
-    3. La palabra **no puede repetirse** hasta reiniciar el juego.  
+    3. La palabra no se repetirá hasta reiniciar el juego.  
     4. Después se indica quién empieza la ronda.
     """)
 
@@ -142,11 +142,10 @@ def ui_config():
         min_value=3,
         max_value=15,
         step=1,
-        value=st.session_state.num_players,
-        key="num_players_input"
+        value=st.session_state.num_players
     )
 
-    if st.button("Continuar ➜", key="btn_config_continue"):
+    if st.button("Continuar ➜"):
         st.session_state.players = [
             {"name": "", "words": []}
             for _ in range(st.session_state.num_players)
@@ -168,15 +167,22 @@ def ui_words():
     name = st.text_input("Introduce tu nombre:", key=f"name_input_{idx}")
 
     words_raw = st.text_area(
-        "Escribe entre 3 y 10 palabras (separadas por comas o saltos de línea):",
+        "Escribe entre **1 y 10 palabras** (separadas por comas o saltos de línea):",
         key=f"words_input_{idx}",
         height=120
     )
 
-    if st.button("Guardar y continuar ➜", key=f"btn_save_player_{idx}"):
+    if st.button("Guardar y continuar ➜"):
         words = parse_words(words_raw)
-        if len(words) < 3 or len(words) > 10:
-            st.error("Debes introducir entre 3 y 10 palabras.")
+
+        # NUEVO → mínimo 1
+        if len(words) < 1:
+            st.error("❗ Debes introducir **al menos 1 palabra**.")
+            return
+
+        # máximo 10
+        if len(words) > 10:
+            st.error("❗ No puedes introducir más de 10 palabras.")
             return
 
         st.session_state.players[idx]["name"] = name.strip() or f"Jugador {idx+1}"
@@ -191,19 +197,20 @@ def ui_words():
 
 
 # ------------------------------------------------------------
-#         PANTALLA 3 – REVELAR ROLES (UNO TRAS OTRO)
+#         PANTALLA 3 – REVELAR ROLES
 # ------------------------------------------------------------
 
 def ui_reveal():
     idx = st.session_state.current_reveal_index
-    player = st.session_state.players[idx]
+    players = st.session_state.players
+    player = players[idx]
 
     st.header("Revelación de roles")
     st.subheader(f"Turno de: **{player['name']}**")
 
-    st.markdown("👉 Solo **esta persona** debe mirar la pantalla ahora mismo.")
+    st.markdown("👉 Solo esta persona debe mirar ahora.")
 
-    if st.button("👀 Revelar rol", key=f"btn_show_role_{idx}"):
+    if st.button("👀 Revelar rol"):
         st.session_state.show_role = True
 
     if st.session_state.show_role:
@@ -211,19 +218,19 @@ def ui_reveal():
 
         if idx == st.session_state.impostor_index:
             st.subheader("😈 ERES EL IMPOSTOR")
-            st.write("No conoces la palabra. Intenta pasar desapercibido.")
+            st.write("No conoces la palabra, intenta pasar desapercibido.")
         else:
             st.subheader("🗝️ Tu palabra secreta es:")
             st.markdown(f"# **{st.session_state.secret_word}**")
 
         st.markdown("---")
 
-        if st.button("➡️ Continuar", key=f"btn_continue_role_{idx}"):
+        if st.button("➡️ Continuar"):
             advance_reveal()
 
 
 # ------------------------------------------------------------
-#       PANTALLA 4 – INICIO DEL JUEGO / QUIÉN EMPIEZA
+#       PANTALLA 4 – INICIO DEL JUEGO
 # ------------------------------------------------------------
 
 def ui_start_round():
@@ -236,17 +243,17 @@ def ui_start_round():
 
     st.markdown("---")
 
-    if st.button("😈 Revelar impostor", key="btn_reveal_impostor"):
+    if st.button("😈 Revelar impostor"):
         impostor = st.session_state.players[st.session_state.impostor_index]["name"]
         st.success(f"El impostor era: **{impostor}**")
 
     st.markdown("---")
 
-    if st.button("🔄 Nueva ronda", key="btn_new_round_start"):
+    if st.button("🔄 Nueva ronda"):
         new_round()
         st.rerun()
 
-    if st.button("🔁 Reiniciar partida completa", key="btn_reset_full_start"):
+    if st.button("🔁 Reiniciar partida"):
         reset_game()
         st.rerun()
 
