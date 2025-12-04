@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import re
+import time  # 👈 NUEVO: para usar time.time_ns()
 
 # ------------------------------------------------------------
 #                 ESTADO INICIAL DE LA APLICACIÓN
@@ -44,6 +45,9 @@ if "used_words" not in st.session_state:
 
 def reset_game():
     """Reinicia toda la partida."""
+    # 👇 NUEVO: resembrar el generador aleatorio como si fuera un srand()
+    random.seed(time.time_ns())
+
     st.session_state.players = []
     st.session_state.num_players = 3
     st.session_state.current_player_input = 0
@@ -175,7 +179,7 @@ def ui_words():
     if st.button("Guardar y continuar ➜"):
         words = parse_words(words_raw)
 
-        # NUEVO → mínimo 1
+        # mínimo 1
         if len(words) < 1:
             st.error("❗ Debes introducir **al menos 1 palabra**.")
             return
@@ -217,7 +221,7 @@ def ui_reveal():
         st.markdown("---")
 
         if idx == st.session_state.impostor_index:
-            st.subheader("😈 ERES EL IMPOSTOR")
+            st.subheader("😈 ERES EL IMPPOSTOR")
             st.write("No conoces la palabra, intenta pasar desapercibido.")
         else:
             st.subheader("🗝️ Tu palabra secreta es:")
